@@ -1,44 +1,34 @@
 package raygun
 
 import (
-	"errors"
 	"net/http"
-
+	"github.com/MindscapeHQ/raygun4go"
 	"github.com/Sirupsen/logrus"
-	"github.com/sditools/goraygun"
 )
 
 type raygunHook struct {
-	Client *goraygun.Client
+	Client *raygun4go.Client
 }
 
-func NewHook(endpoint string, apiKey string, env string) *raygunHook {
-	client := goraygun.Init(goraygun.Settings{
-		ApiKey:      apiKey,
-		Endpoint:    endpoint,
-		Environment: env,
-	}, goraygun.Entry{})
+func NewHook(apiKey string, appName string) (*raygunHook, error) {
+	client,err := raygun4go.New(apiKey, appName)
+	return NewHookFromClient(client),err
+}
+
+func NewHookFromClient(client *raygun4go.Client) *raygunHook {
 	return &raygunHook{client}
 }
 
 func (hook *raygunHook) Fire(logEntry *logrus.Entry) error {
-	// Start with a copy of the default entry
-	raygunEntry := hook.Client.Entry
+	hook.processEntry(logEntry)
+	return hook.Client.CreateError(logEntry.Message)
+}
 
-	if request, ok := logEntry.Data["request"]; ok {
-		raygunEntry.Details.Request.Populate(*(request.(*http.Request)))
+func (hook *raygunHook) processEntry(logEntry *logrus.Entry) {
+	if request, ok := logEntry.Data["request"].(*http.Request); ok {
+		hook.Client.Request(request)
 	}
-
-	var reportErr error
-	if err, ok := logEntry.Data["error"]; ok {
-		reportErr = err.(error)
-	} else {
-		reportErr = errors.New(logEntry.Message)
-	}
-
-	hook.Client.Report(reportErr, raygunEntry)
-
-	return nil
+	hook.Client.CustomData(logEntry.Data)
 }
 
 func (hook *raygunHook) Levels() []logrus.Level {
