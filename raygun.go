@@ -3,7 +3,7 @@ package raygun
 import (
 	"net/http"
 	"github.com/MindscapeHQ/raygun4go"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type raygunHook struct {
